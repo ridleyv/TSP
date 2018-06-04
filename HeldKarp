@@ -1,0 +1,340 @@
+#include <iostream> //input/output
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <cmath> //sqrt, round
+
+struct City {
+	int cityNum;
+	int xcoord;
+	int ycoord;
+};
+
+// For calcTSP_HK
+#include <set>
+#include <map>
+
+#define INF 99999 // to represent infinity
+
+struct Index {
+	int currentCity;
+	std::vector<int> citySet;
+};
+
+/***********************************************************************
+* Name: printCities
+* Parameters: This function takes a vector of City structs as a parameter.
+* Description: This function prints the vector of cities to the screen
+* to help with debugging.
+************************************************************************/
+void printCities(std::vector<City> cities) {
+	while (!cities.empty()) {
+		City c1 = cities.back();
+		std::cout << c1.cityNum << " (" << c1.xcoord << "," << c1.ycoord
+			<< ")" << std::endl;
+		cities.pop_back();
+	}
+
+	return;
+}
+
+/***********************************************************************
+* Name: distance
+* Parameters: x1, y1, x2, y2 coordinates for two points
+* Description: This function calculates the distance between two points
+* using the distance formula, and returns a rounded integer value for
+* the distance calculated.
+***********************************************************************/
+int distance(int x1, int y1, int x2, int y2) {
+	int xdist = x1 - x2;
+	int ydist = y1 - y2;
+	double dist = sqrt(xdist * xdist + ydist * ydist);
+	return round(dist);
+}
+
+/***********************************************************************
+* Name: calcD
+* Parameters: vector of City structs, cityNum1, cityNum2
+* Description: This function calculates the distance between two cities
+* in a list of cities by calling the distance formula.
+***********************************************************************/
+int calcD(std::vector<City> cities, int cityNum1, int cityNum2) {
+	City c1, c2;
+	c1.cityNum = cityNum1;
+	c2.cityNum = cityNum2;
+
+	for (int i = 0; i < cities.size(); i++) {
+		if (cities[i].cityNum == c1.cityNum)
+			c1 = cities[i];
+	}
+
+	for (int i = 0; i < cities.size(); i++) {
+		if (cities[i].cityNum == c2.cityNum)
+			c2 = cities[i];
+	}
+
+	return distance(c1.xcoord, c1.ycoord, c2.xcoord, c2.ycoord);
+}
+
+/***********************************************************************
+* Name: createDistanceMatrix
+* Parameters: vector of City structs
+* Description: This function calculate distances between cities in list
+* and returns a 2D matrix representing each calculated distance.
+***********************************************************************/
+int** createDistanceMatrix(std::vector<City> cities) {
+
+	int n = cities.size(); // number of cities in graph
+
+	// Allocate space for matrix
+	int** matrix = new int*[n];
+	for (int i = 0; i < n; i++) {
+		matrix[i] = new int[n];
+	}
+
+	// Fill the matrix
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			matrix[i][j] = calcD(cities, i, j); // works if cityNums are always 0 ... n-1
+		}
+	}
+	return matrix;
+}
+
+/***********************************************************************
+* Name: createIndex
+* Parameters: cityNum, citySet
+* Description: This function creates a new Index and is used in the 
+* calcTSP_HK function.
+***********************************************************************/
+Index* createIndex(int cityNum, std::vector<int>* citySet) {
+	Index* idx = new Index;
+	idx->currentCity = cityNum;
+	if (citySet->size() != 0) {
+		for (int i = 0; i < citySet->size(); i++) {
+			(idx->citySet).push_back((*citySet)[i]);
+		}
+	}
+	return idx;
+}
+
+/***********************************************************************
+* Name: createSet
+* Parameters: input[], currentCity
+* Description: This function creates a new set of integers to list cityNums
+* and is used in the calcTSP_HK function.
+***********************************************************************/
+std::vector<int> createSet(int input[], int currentCity) {
+
+	std::vector<int> newSet;
+
+	if (currentCity != 0) {
+		for (int i = 0; i < currentCity; i++) {
+			newSet.push_back(input[i]);
+		}
+	}
+	return newSet;
+}
+
+/***********************************************************************
+* Name: findSets
+* Parameters: cityNums, startCity, currentCity, allSets, result vector
+* Description: This function finds all set combinations for a certain
+* number of cities and is used in the calcTSP_HK function.
+***********************************************************************/
+void findSets(std::vector<int> cityNums, int startCity, int currentCity, std::vector<std::vector<int>>* allSets, int result[]) {
+	if (currentCity == cityNums.size()) {
+		return;
+	}
+	std::vector<int> set = createSet(result, currentCity);
+
+	allSets->push_back(set);
+
+	for (int i = startCity; i < cityNums.size(); i++) {
+		result[currentCity] = cityNums[i];
+		findSets(cityNums, i + 1, currentCity + 1, allSets, result);
+	}
+}
+
+/***********************************************************************
+* Name: sortSets
+* Parameters: vector of vector<int>
+* Description: This function sorts the sets by size in ascending order
+* and is used in the calcTSP_HK function.
+***********************************************************************/
+std::vector<std::vector<int>> sortSets(int n, std::vector<std::vector<int>> sets) {
+	std::vector<std::vector<int>> sortedSets;
+
+	for (int j = 0; j < n; j++) {
+		for (int i = 0; i < sets.size(); i++) {
+			if (sets[i].size() == j) {
+				sortedSets.push_back(sets[i]);
+			}
+		}
+	}
+	return sortedSets;
+}
+
+/***********************************************************************
+* Name: calcCost
+* Parameters: set of cityNums, prevCity, map<Index, minCost> opt
+* Description: This function calculates the cost to get to a city from
+* the starting city by traveling through all the cities in the given
+* set. This function is used in the calcTSP_HK function.
+***********************************************************************/
+int calcCost(std::vector<int>* set, int prevCity, std::map<Index, int> opt) {
+	int cost = 0;
+
+	// Remove prevCity from set
+	int i = 0;
+	int idx = -1;
+	while (i < set->size() && idx < 0) { // find index of prevCity
+		if ((*set)[i] == prevCity)
+			idx = i;
+	}
+	set->erase(set->begin() + i); // erase prevCity
+
+	// Create index for map
+	Index* index = createIndex(prevCity, set);
+
+	std::map<Index, int>::iterator it;
+//	it = opt.find(index);
+//	if (it != opt.end()) {
+//		opt.erase(it);
+//	}
+
+//	cost = opt.find(index)->second;
+
+	set->push_back(prevCity);
+	return cost;
+}
+
+/***********************************************************************
+* Name: calcTSP_HK
+* Parameters: vector of City stucts, pointer to vector of City structs (tour)
+* Description: This function uses the Held-Karp algorithm for
+* the Traveling Salesman Problem to calculate a near-optimal tour.
+***********************************************************************/
+int calcTSP_HK(std::vector<City> cities, std::vector<City>* tour) {
+	int n = cities.size();
+
+	// Create distance matrix
+	int** d = createDistanceMatrix(cities);
+	
+	for (int i = 0; i < cities.size(); i++) {
+		for (int j = 0; j < cities.size(); j++) {
+			std::cout << d[i][j] << "\t";
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+
+	// Create DP table
+	std::map<Index, int> opt;
+	std::map<Index, int> prevCity;
+
+	// Find all possible sets for given number of cities
+	std::vector<std::vector<int>> allSets;
+
+	std::vector<int> input; // input contains all cityNums 1 to n
+	for (int i = 1; i < n; i++) {
+		input.push_back(i);
+	}
+	int* result = new int[n];
+
+	findSets(input, 0, 0, &allSets, result);
+	allSets = sortSets(n-1, allSets);
+
+	// Consider all sets
+	for (int i = 0; i < allSets.size(); i++) {
+
+		// for debugging
+		std::cout << "Set " << i + 1 << ": ";
+		for (std::vector<int>::iterator it = allSets[i].begin(); it != allSets[i].end(); it++) {
+			std::cout << *it << " ";
+		}
+		std::cout << std::endl;
+
+		// Consider all cities
+		for (int currCity = 1; currCity < n; currCity++) {
+			bool currCityVisited = false;
+
+			// Determine if current city is already in set
+			for (int j = 0; j < allSets[i].size(); j++) {
+				if (allSets[i][j] == currCity) {
+					currCityVisited = true;
+				}
+			}
+
+			// If current city is not already in set
+			if (!currCityVisited) {
+				Index* index = createIndex(currCity, &allSets[i]);
+				std::cout << "index->currentCity: " << index->currentCity << " | ";
+				std::cout << "index->citySet: ";
+				for (int i = 0; i < index->citySet.size(); i++) {
+					std::cout << index->citySet[i] << " ";
+				}
+				std::cout << " | ";
+
+				int minCost = INF;
+				int minPrevCity = 0;
+				
+				for (int j = 0; j < index->citySet.size(); j++) {
+					int prevCity = index->citySet[j];
+					int cost = d[prevCity][currCity] + calcCost(&allSets[i], prevCity, opt);
+					if (cost < minCost) {
+						minCost = cost;
+						minPrevCity = prevCity;
+					}
+				}
+				// To handle empty sets
+				if (allSets[i].size() == 0) {
+						minCost = d[i][currCity];
+				}
+
+				std::cout << "minCost: " << minCost << std::endl;
+			}
+		}
+		std::cout << std::endl;
+	}
+
+	return 0;
+}
+
+int main(void) { //TRACI--replace later with int main(int argc, char** argv) for command line input
+
+	//create input file and open it
+	std::ifstream inputFile;
+	inputFile.open("tsp_example_new4.txt"); //TRACI--change the parameter to argv[1] later for command line input
+
+	// Check that file exists
+	if (inputFile.fail()) {
+		std::cout << "Input file not found." << std::endl;
+		return 0;
+	}
+
+	//create a vector of Cities
+	std::vector<City> cities;
+
+	//read in city data
+	std::string line;
+	while (std::getline(inputFile, line)) {
+
+		std::istringstream inputstream(line);
+
+		City c;
+		inputstream >> c.cityNum;
+		inputstream >> c.xcoord;
+		inputstream >> c.ycoord;
+
+		cities.push_back(c);
+	}
+
+	inputFile.close();
+
+	std::vector<City>* tour = new std::vector<City>;
+	calcTSP_HK(cities, tour);
+
+	system("pause");
+	return 0;
+}
