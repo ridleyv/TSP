@@ -8,6 +8,7 @@ struct City{
 	int cityNum;
 	int xcoord;
 	int ycoord;
+	bool visited = false;
 };
 
 /***********************************************************************
@@ -42,27 +43,78 @@ int distance(int x1, int y1, int x2, int y2){
 }
 
 /***********************************************************************
-* Name: calcTSP
-* Parameters: 
-* Description: This function uses the 2opt approximation algorithm for
-* the Traveling Salesman Problem to calculate a near-optimal tour.
+* Name: greedyTSP
+* Parameters: a vector of cities, an integer for the number of cities in
+* the vector, and a second vector of cities to keep track of the tour
+* Description: This function uses the greedy algorithm for
+* the Traveling Salesman Problem to calculate a tour.
 ***********************************************************************/
-int calcTSP(std::vector<City> cities, std::vector<City> tour){
+int greedyTSP(std::vector<City> cities, int numOfCities, std::vector<City> &tour){
 
+	int tourDistance = 0;
 
+	//select a city to begin with
+	City *currentCity = &cities[0];
+	tour.push_back(*currentCity);
 
+	bool allCitiesVisited;
+	City *closestCity = NULL;
 
-	return 0;
+	do{
+		//std::cout << "currentCity:  " << currentCity->cityNum << std::endl;
+		int closestDistance = INT_MAX;
+		currentCity->visited = true;
+		allCitiesVisited = true;
+
+		//check each city
+		for (int i = 0; i < numOfCities; i++){
+			//if city has not yet been visited
+			if (!cities[i].visited){
+				allCitiesVisited = false;
+
+				//calculate and find the city with the shortest distance to the current city
+				int dist = distance(currentCity->xcoord, currentCity->ycoord, cities[i].xcoord, cities[i].ycoord);
+				//std::cout << "distance between " << currentCity->cityNum << " and " << cities[i].cityNum << ": " << dist << std::endl;
+
+				//check to see if this city is closer than the other cities checked so far
+				if (dist < closestDistance){
+					closestDistance = dist;
+					closestCity = &cities[i];
+				}
+			}
+			/*else {
+				std::cout << "skipping " << cities[i].cityNum << std::endl;
+			}*/
+		}
+		
+		if (!allCitiesVisited) {
+			//std::cout << "Next City on Tour " << closestCity->cityNum << std::endl;
+			tour.push_back(*closestCity);
+			currentCity = closestCity;
+			tourDistance += closestDistance;
+		}
+		//std::cout << std::endl;
+
+	} while (!allCitiesVisited);
+
+	//go back to first city      
+	tourDistance += distance(tour[0].xcoord, tour[0].ycoord, tour.back().xcoord, tour.back().ycoord);
+	tour.push_back(tour[0]);
+
+	return tourDistance;
 }
 
 int main(void){ //TRACI--replace later with int main(int argc, char** argv) for command line input
 
 	//create input file and open it
 	std::ifstream inputFile;
-	inputFile.open("tsp_example_1.txt"); //TRACI--change the parameter to argv[1] later for command line input
+	//inputFile.open("tsp_example_3.txt"); //TRACI--change the parameter to argv[1] later for command line input
+	inputFile.open("tsp_example_1.txt");
+	//inputFile.open("tsp_example_2.txt");
 	
 	//create a vector of Cities
 	std::vector<City> cities;
+	int numOfCities = 0;
 
 	//read in city data
 	std::string line;
@@ -76,31 +128,18 @@ int main(void){ //TRACI--replace later with int main(int argc, char** argv) for 
 		inputstream >> c.ycoord;
 
 		cities.push_back(c);
+
+		numOfCities++;
 	}
 
+	//create a vector to hold the completed tour
+	std::vector<City> tour;
+
+	//call TSP function
+	int finalTourDist = greedyTSP(cities, numOfCities, tour);
+
+	std::cout << "The tour distance is " << finalTourDist << std::endl;
 	
-
-	/*Code to test distance formula calculation.
-
-	int x1 = 0;
-	int y1 = 0;
-	int x2 = 1;
-	int y2 = 3;
-	int x3 = 6;
-	int y3 = 0;
-
-	int dist = distance(x1, y1, x2, y2);
-
-	std::cout << "Distance btw 1 and 2 is " << dist << std::endl;
-
-	dist = distance(x2, y2, x3, y3);
-
-	std::cout << "Distance btw 2 and 3 is " << dist << std::endl;
-
-	dist = distance(x3, y3, x1, y1);
-
-	std::cout << "Distance btw 3 and 1 is " << dist << std::endl;
-	*/
 
 	inputFile.close();
 
